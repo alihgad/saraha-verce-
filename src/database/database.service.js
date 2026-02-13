@@ -61,3 +61,9 @@ export const insertMany = async ({
 }) => {
     return await model.insertMany(data)
 }
+
+export const findById = async ({
+    model,
+    id }) => {
+    return await model.findById(id)
+}

@@ -1,26 +1,44 @@
-import { ConflictException, NotFoundException, ProviderEnums } from "../../common/index.js";
+import { ConflictException, NotFoundException, ProviderEnums, UnauthorizedException } from "../../common/index.js";
 import { userModel } from "../../database/index.js"
-import { findOne } from '../../database/database.service.js'
-
+import { findById, findOne } from '../../database/database.service.js'
+import { generateHash, compareHash } from "../../common/index.js";
+import jwt from 'jsonwebtoken'
 
 export const signup = async (data) => {
     let { userName, email, password } = data
     let exsistUser = await findOne({ model: userModel, filter: { email } })
     if (exsistUser) {
-            return ConflictException({ message: "User Already Exists" })
+        return ConflictException({ message: "User Already Exists" })
     }
-    let addedUser = await userModel.insertOne({ userName, email, password })
+    let hashedPassword = await generateHash(password)
+    let addedUser = await userModel.insertOne({ userName, email, password: hashedPassword })
     return addedUser
-
 }
-
 
 export const login = async (data) => {
     let { email, password } = data
-    //await userModel.findOne({ email, password, provider: ProviderEnums.System }).select("-password -_id")
-    let exsistUser = findOne({ model: userModel, filter: { email, password, provider: ProviderEnums.System }, select: "-password -_id" })
+    let exsistUser = await findOne({ model: userModel, filter: { email, provider: ProviderEnums.System } })
     if (exsistUser) {
-        return exsistUser
+        const isMatched = await compareHash(password, exsistUser.password)
+        if (isMatched) {
+            let token = jwt.sign({ id: exsistUser._id }, "route", { expiresIn: "1d" })
+            return { exsistUser, token }
+        }
     }
     return NotFoundException({ message: "User Not Found" })
+}
+
+
+export const getUserById = async (headers) => {
+    let { authorization } = headers
+    if (!authorization) {
+        UnauthorizedException("un authorized")
+    }
+    let decoded = jwt.verify(authorization, "route")
+
+    console.log(decoded.id);
+
+    let userData = await findById({ model: userModel, id: decoded.id })
+    return userData
+
 }
