@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException, ProviderEnums, UnauthorizedExcept
 import { userModel } from "../../database/index.js"
 import { findById, findOne } from '../../database/database.service.js'
 import { generateHash, compareHash } from "../../common/index.js";
+import { env } from "../../../config/index.js"
 import jwt from 'jsonwebtoken'
 
 export const signup = async (data) => {
@@ -15,13 +16,30 @@ export const signup = async (data) => {
     return addedUser
 }
 
-export const login = async (data) => {
+export const login = async (data, issuer) => {
     let { email, password } = data
     let exsistUser = await findOne({ model: userModel, filter: { email, provider: ProviderEnums.System } })
+
     if (exsistUser) {
+        let signature = undefined
+        let audience = undefined
+        switch (exsistUser.role) {
+            case "0":
+                signature = env.adminSignature
+                audience = "Admin"
+                break;
+
+            default:
+                signature = env.userSignature
+                audience = "User"
+                break;
+        }
+        console.log(signature);
         const isMatched = await compareHash(password, exsistUser.password)
         if (isMatched) {
-            let token = jwt.sign({ id: exsistUser._id }, "route", { expiresIn: "1d" })
+            let token = jwt.sign({ id: exsistUser._id }, signature, {
+                audience
+            })
             return { exsistUser, token }
         }
     }
@@ -29,16 +47,12 @@ export const login = async (data) => {
 }
 
 
-export const getUserById = async (headers) => {
-    let { authorization } = headers
-    if (!authorization) {
-        UnauthorizedException("un authorized")
-    }
-    let decoded = jwt.verify(authorization, "route")
+export const getUserById = async (userId) => {
+    console.log(userId, "from user id");
 
-    console.log(decoded.id);
+    let userData = await findById({ model: userModel, id: userId })
+    console.log(userData);
 
-    let userData = await findById({ model: userModel, id: decoded.id })
     return userData
 
 }
