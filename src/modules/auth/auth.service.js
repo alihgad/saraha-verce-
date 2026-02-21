@@ -1,9 +1,11 @@
-import { ConflictException, NotFoundException, ProviderEnums, UnauthorizedException } from "../../common/index.js";
+import { BadRequestException, ConflictException, decodeRefreshToken, genetareToken, NotFoundException, ProviderEnums, UnauthorizedException } from "../../common/index.js";
 import { userModel } from "../../database/index.js"
-import { findById, findOne } from '../../database/database.service.js'
+import { findById, findOne, insertOne } from '../../database/database.service.js'
 import { generateHash, compareHash } from "../../common/index.js";
 import { env } from "../../../config/index.js"
 import jwt from 'jsonwebtoken'
+import { OAuth2Client } from 'google-auth-library'
+
 
 export const signup = async (data) => {
     let { userName, email, password } = data
@@ -19,28 +21,11 @@ export const signup = async (data) => {
 export const login = async (data, issuer) => {
     let { email, password } = data
     let exsistUser = await findOne({ model: userModel, filter: { email, provider: ProviderEnums.System } })
-
     if (exsistUser) {
-        let signature = undefined
-        let audience = undefined
-        switch (exsistUser.role) {
-            case "0":
-                signature = env.adminSignature
-                audience = "Admin"
-                break;
-
-            default:
-                signature = env.userSignature
-                audience = "User"
-                break;
-        }
-        console.log(signature);
         const isMatched = await compareHash(password, exsistUser.password)
         if (isMatched) {
-            let token = jwt.sign({ id: exsistUser._id }, signature, {
-                audience
-            })
-            return { exsistUser, token }
+            let { accessToken, refreshToken } = genetareToken(exsistUser)
+            return { exsistUser, accessToken, refreshToken }
         }
     }
     return NotFoundException({ message: "User Not Found" })
@@ -49,10 +34,58 @@ export const login = async (data, issuer) => {
 
 export const getUserById = async (userId) => {
     console.log(userId, "from user id");
-
     let userData = await findById({ model: userModel, id: userId })
     console.log(userData);
-
     return userData
+}
 
+export const generateAccessToken = (refreshToken) => {
+
+    let decoded = decodeRefreshToken(refreshToken)
+    let signature = undefined
+    let audience = undefined
+    switch (decoded.aud) {
+        case "Admin":
+            signature = env.adminSignature
+            audience = "Admin"
+            break;
+
+        default:
+            signature = env.userSignature
+            audience = "User"
+            break;
+    }
+    let accessToken = jwt.sign({ id: decoded.id }, signature, {
+        audience,
+        expiresIn: "30m"
+    })
+    return accessToken
+}
+export const signupMail = async (token) => {
+    const client = new OAuth2Client();
+    const ticket = await client.verifyIdToken({
+        idToken: token.idToken,
+        audience: "12909487230-8po2bsrb5hg1p4ucar23jjsc8qie6ob9.apps.googleusercontent.com"
+    });
+    const payload = ticket.getPayload();
+    console.log(payload);
+    if (!payload.email_verified) {
+        throw BadRequestException("email not verified")
+    }
+    let exsistUser = await findOne({ model: userModel, filter: { email: payload.email } })
+    if (exsistUser) {
+        throw ConflictException("user already exsist")
+    } else {
+        let addedUser = await insertOne({
+            model: userModel, data: {
+                userName: payload.name,
+                email: payload.email
+            }
+        })
+        if (addedUser) {
+            return addedUser
+        } else {
+            throw BadRequestException("something went wrong")
+        }
+    }
 }

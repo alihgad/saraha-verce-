@@ -1,29 +1,29 @@
 
 import { env } from '../../../config/index.js'
 import jwt from 'jsonwebtoken'
+import { decodeToken } from '../security/security.js'
 
 export const auth = (req, res, next) => {
     let { authorization } = req.headers
-    if (!authorization) {
-        UnauthorizedException("un authorized")
-    }
-    let decoded = jwt.decode(authorization)
+console.log(authorization);
 
-    let signature = undefined
+    let [flag, token] = authorization.split(" ")
 
-    switch (decoded.aud) {
-        case "Admin":
-            signature = env.adminSignature
+    switch (flag) {
+        case "Basic":
+            const Basicdata = Buffer.from(token, "base64").toString()
+            let [email, password] = Basicdata.split(":")
+            console.log(email, "  ", password);
             break;
-
+        case "Bearer":
+            if (!authorization) {
+                UnauthorizedException("un authorized")
+            }
+            let data = decodeToken(token)
+            req.userId = data.id
+            next()
         default:
-            signature = env.userSignature
             break;
     }
-    console.log(signature);
 
-    let decodedData = jwt.verify(authorization, signature)
-    console.log(decodedData);
-    req.userId = decodedData.id
-    next()
 }
