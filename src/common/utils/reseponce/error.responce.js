@@ -55,5 +55,6 @@ export const globalErrorHandler = (error, req, res, next) => {
         status,
         stack: mood ? error.stack : null,
         errorMessage: mood ? displayErrorMessage : deafultMessage,
+        extra: error.cause.extra
     });
 }
