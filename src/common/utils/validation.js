@@ -4,7 +4,7 @@ import { BadRequestException } from "./reseponce/error.responce.js"
 
 
 
-export const validation = (schema) => { // signupschema
+export const validation = (schema) => { 
     return (req, res, next) => {
         let { value, error } = schema.validate(req.body, { abortEarly: false })
         if (error) {

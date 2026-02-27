@@ -3,6 +3,7 @@ import { env } from '../config/env.service.js'
 import { globalErrorHandler } from "./common/index.js"
 import { databaseCOnnection } from "./database/index.js"
 import authRouter from './modules/auth/auth.controller.js'
+import messageRouter from './modules/messages/messages.controller.js'
 import cors from 'cors'
 
 export const bootstrap = async () => {
@@ -10,6 +11,7 @@ export const bootstrap = async () => {
     app.use(express.json())
     app.use(cors())
     app.use('/auth', authRouter)
+    app.use('/messages', messageRouter)
     await databaseCOnnection()
     app.use('{*dummy}', (req, res) => res.status(404).json('invalid route'))
     app.use(globalErrorHandler)

@@ -9,8 +9,8 @@ const router = Router();
 
 
 router.post('/signup', validation(signupSchema), async (req, res) => {
-    let addedUser = await signup(req.body)
-    return SuccessResponse({ res, message: "user added ", status: 201, data: addedUser })
+    // let addedUser = await signup(req.body)
+    return SuccessResponse({ res, message: "user added ", status: 201 })
 })
 
 router.post('/login', validation(loginShema), async (req, res) => {

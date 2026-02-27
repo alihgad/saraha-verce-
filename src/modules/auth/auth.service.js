@@ -79,7 +79,8 @@ export const signupMail = async (token) => {
         let addedUser = await insertOne({
             model: userModel, data: {
                 userName: payload.name,
-                email: payload.email
+                email: payload.email,
+                provider: ProviderEnums.Google
             }
         })
         if (addedUser) {
