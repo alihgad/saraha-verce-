@@ -10,7 +10,10 @@ export const bootstrap = async () => {
     const app = express()
     app.use(express.json())
     app.use(cors())
-    app.use('/auth', authRouter)
+
+    app.use("/upload" , express.static("upload"))
+    
+    app.use('/auth',authRouter)
     app.use('/messages', messageRouter)
     await databaseCOnnection()
     app.use('{*dummy}', (req, res) => res.status(404).json('invalid route'))
