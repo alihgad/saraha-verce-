@@ -25,7 +25,10 @@ export const bootstrap = async () => {
     app.use(express.urlencoded({ extended: false }))
 
     app.use(cors())
-    app.use('/auth', authRouter)
+
+    app.use("/upload" , express.static("upload"))
+    
+    app.use('/auth',authRouter)
     app.use('/messages', messageRouter)
     await databaseCOnnection()
     app.get('/uploads/:filename', (req, res) => {
