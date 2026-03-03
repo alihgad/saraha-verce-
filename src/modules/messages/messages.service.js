@@ -2,15 +2,17 @@ import mongoose from "mongoose"
 import { BadRequestException } from "../../common/index.js"
 import { findAll, findById, findOne, findOneAndDelete, insertOne, userModel } from "../../database/index.js"
 import { messageModel } from "../../database/models/messages.model.js"
+import {env} from "../../../config/env.service.js"
 
 
 
-export const sendMessage = async (body, userId) => {
+export const sendMessage = async (body, userId , file) => {
     let { message, image } = body
     let exsistUser = await findById({ model: userModel, id: userId })
     if (!exsistUser) {
         throw BadRequestException("invalid user")
     }
+    image = `${env.BASE_URL}/uploads/${file.filename}`
     let addedMessage = await insertOne({ model: messageModel, data: { message, image, receverId: userId } })
     if (addedMessage) {
         return addedMessage

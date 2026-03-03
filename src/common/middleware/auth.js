@@ -2,10 +2,11 @@
 import { env } from '../../../config/index.js'
 import jwt from 'jsonwebtoken'
 import { decodeToken } from '../security/security.js'
+import { UnauthorizedException } from '../utils/reseponce/error.responce.js'
 
 export const auth = (req, res, next) => {
     let { authorization } = req.headers
-console.log(authorization);
+    console.log(authorization);
 
     let [flag, token] = authorization.split(" ")
 
@@ -17,7 +18,7 @@ console.log(authorization);
             break;
         case "Bearer":
             if (!authorization) {
-                UnauthorizedException("un authorized")
+                throw UnauthorizedException("un authorized")
             }
             let data = decodeToken(token)
             req.userId = data.id
