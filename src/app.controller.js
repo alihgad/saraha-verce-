@@ -4,6 +4,7 @@ import { globalErrorHandler } from "./common/index.js"
 import { databaseCOnnection } from "./database/index.js"
 import authRouter from './modules/auth/auth.controller.js'
 import messageRouter from './modules/messages/messages.controller.js'
+import userRoutes from './modules/user/user.controller.js'
 import cors from 'cors'
 import fs from 'fs'
 import path from 'path'
@@ -11,7 +12,7 @@ import path from 'path'
 export const bootstrap = async () => {
     const app = express()
     app.use((req, res, next) => {
-        console.log(`${req.method} ${req.url}`)
+        // console.log(`${req.method} ${req.url}`)w
         next()
     })
 
@@ -28,6 +29,7 @@ export const bootstrap = async () => {
     
     app.use('/auth',authRouter)
     app.use('/messages', messageRouter)
+    app.use('/users' , userRoutes)
     await databaseCOnnection()
     app.get('/uploads/:filename', (req, res) => {
         const filename = req.params.filename

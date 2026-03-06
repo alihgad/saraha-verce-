@@ -7,8 +7,7 @@ import { auth } from '../../common/middleware/auth.js';
 import { upload } from '../../common/middleware/multer.js'
 const router = Router();
 
-router.post('/send-message/:id', validation(sendMessageSchema), upload('image').single('image'), async (req, res) => {
-    console.log(req.file);
+router.post('/send-message/:id', upload().single('image'), validation(sendMessageSchema), async (req, res) => {
     let data = await sendMessage(req.body, req.params.id, req.file)
     SuccessResponse({ res, message: "message sent", status: 200, data })
 })

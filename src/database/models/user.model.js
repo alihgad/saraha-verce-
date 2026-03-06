@@ -22,6 +22,11 @@ const userSchema = new mongoose.Schema({
         type: String
         // required: true
     },
+    shareProfileName: {
+        type: String,
+        unique: true,
+        required: true
+    },
     phone: String,
     DOB: Date,
     gender: {
@@ -33,6 +38,9 @@ const userSchema = new mongoose.Schema({
         type: String,
         enum: Object.values(ProviderEnums),
         default: ProviderEnums.System
+    },
+    image: {
+        type: String
     },
     role: {
         type: String,

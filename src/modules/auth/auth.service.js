@@ -7,14 +7,20 @@ import jwt from 'jsonwebtoken'
 import { OAuth2Client } from 'google-auth-library'
 
 
-export const signup = async (data) => {
-    let { userName, email, password } = data
+export const signup = async (data, file) => {
+    let { userName, email, password, shareProfileName } = data
     let exsistUser = await findOne({ model: userModel, filter: { email } })
     if (exsistUser) {
         return ConflictException({ message: "User Already Exists" })
     }
+    let image = ''
+    if (file) {
+        image = `${env.BASE_URL}/uploads/${file.filename}`
+    }
+    console.log();
+    
     let hashedPassword = await generateHash(password)
-    let addedUser = await userModel.insertOne({ userName, email, password: hashedPassword })
+    let addedUser = await userModel.insertOne({ userName, email, password: hashedPassword, shareProfileName, image })
     return addedUser
 }
 

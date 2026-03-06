@@ -4,13 +4,14 @@ import { BadRequestException, SuccessResponse } from '../../common/index.js';
 import { auth } from '../../common/middleware/auth.js';
 import { loginShema, signupSchema } from './auth.validation.js'
 import { validation } from '../../common/utils/validation.js'
+import { upload } from '../../common/middleware/multer.js'
 const router = Router();
 
 
 
-router.post('/signup', validation(signupSchema), async (req, res) => {
-    // let addedUser = await signup(req.body)
-    return SuccessResponse({ res, message: "user added ", status: 201 })
+router.post('/signup', upload().single('image'), validation(signupSchema), async (req, res) => {
+    let addedUser = await signup(req.body, req.file)
+    return SuccessResponse({ res, message: "user added ", status: 201, data: addedUser })
 })
 
 router.post('/login', validation(loginShema), async (req, res) => {
