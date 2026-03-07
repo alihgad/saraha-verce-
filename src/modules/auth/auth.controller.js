@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { generateAccessToken, getUserById, login, signup, signupMail } from './auth.service.js';
+import { generateAccessToken, getUserById, login, signup, signupMail , logout , verifyEmail } from './auth.service.js';
 import { BadRequestException, SuccessResponse } from '../../common/index.js';
 import { auth } from '../../common/middleware/auth.js';
 import { loginShema, signupSchema } from './auth.validation.js'
@@ -12,6 +12,21 @@ const router = Router();
 router.post('/signup', upload().single('image'), validation(signupSchema), async (req, res) => {
     let addedUser = await signup(req.body, req.file)
     return SuccessResponse({ res, message: "user added ", status: 201, data: addedUser })
+})
+
+router.post("/verify" , async (req,res)=>{
+    let data = await verifyEmail(req.body)
+    if(data){
+        return SuccessResponse({
+            res,
+            message:"3ash",
+            data 
+        })
+    }else{
+        return BadRequestException({
+            message : "wrong"
+        })
+    }
 })
 
 router.post('/login', validation(loginShema), async (req, res) => {
@@ -38,5 +53,14 @@ router.post('/signup/gmail', async (req, res) => {
     const data = await signupMail(req.body)
     return SuccessResponse({ res, message: "user signup succesfully", status: 200 })
 
+})
+
+
+router.post("/logout",auth , async (req,res) =>{
+    await logout(req)
+    return SuccessResponse({
+        res,
+        message: "logout done"
+    })
 })
 export default router

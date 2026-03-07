@@ -1,13 +1,27 @@
 import { BadRequestException } from '../../common/index.js'
 import { findOne, findOneAndDelete, findOneAndUpdate, userModel } from '../../database/index.js'
 import { env } from '../../../config/index.js'
+import { get, redis_delete, set } from '../../database/redis.service.js'
 
+let genKey = (userId)=>{
+    return `userProfile::${userId}`
+}
 
 export const getUserProfile = async (userId) => {
-    let userData = await findOne({ model: userModel, filter: { _id: userId }, select: 'firstName lastName email shareProfileName image' })
+    let userData = await get(genKey(userId))
+    if(userData){
+        return userData
+    }
+
+     userData = await findOne({ model: userModel, filter: { _id: userId }, select: 'firstName lastName email shareProfileName image' })
     if (!userData) {
         throw BadRequestException({ message: "user not found" })
     } else {
+        await set({
+            key : genKey(userId),
+            value : userData,
+            ttl : 60
+        })
         return userData
     }
 }
@@ -47,6 +61,7 @@ export const updateProfile = async (userId, data, file) => {
     }
     let exsistUser = await findOneAndUpdate({ model: userModel, filter: { _id: userId }, update: updatedData, options: { new: true } })
     if (exsistUser) {
+        await redis_delete(genKey(userId))
         return exsistUser
     }
     throw BadRequestException("user not found")

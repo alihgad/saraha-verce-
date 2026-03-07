@@ -1,10 +1,12 @@
 import { BadRequestException, ConflictException, decodeRefreshToken, genetareToken, NotFoundException, ProviderEnums, UnauthorizedException } from "../../common/index.js";
 import { userModel } from "../../database/index.js"
-import { findById, findOne, insertOne } from '../../database/database.service.js'
+import { findById, findOne, findOneAndUpdate, insertOne } from '../../database/database.service.js'
 import { generateHash, compareHash } from "../../common/index.js";
 import { env } from "../../../config/index.js"
 import jwt from 'jsonwebtoken'
 import { OAuth2Client } from 'google-auth-library'
+import { createRevokeKey, get, set } from "../../database/redis.service.js";
+import { sendEmail } from "../../common/utils/email/sendEmail.js";
 
 
 export const signup = async (data, file) => {
@@ -21,7 +23,60 @@ export const signup = async (data, file) => {
     
     let hashedPassword = await generateHash(password)
     let addedUser = await userModel.insertOne({ userName, email, password: hashedPassword, shareProfileName, image })
+    let code = Math.floor(Math.random() * 10000)
+    code = code.toString().padEnd(4,0)
+
+    set({
+        key:`otp::${addedUser._id}`,
+        value : await generateHash(code),
+        ttl : 60 * 5
+    })
+ 
+     sendEmail({
+        to : email,
+        subject : "verfiy your email bsor3a",
+        html : `<h1>Hello</h1> 
+            <p>${code} </p>
+        `
+    })
+
     return addedUser
+}
+
+
+export const verifyEmail =async ({code , email})=>{
+    let user = await findOne({
+        model : userModel,
+        filter : {email},
+    })
+    if(user.isVerfied){
+        return {
+            message : "tany ?"
+        }
+    }
+    
+
+    if(!user){
+        // return NotFoundException()
+        throw new Error("not found")
+    }
+
+    let redisCode = await get(`otp::${user._id}`)
+    
+
+    if( await compareHash(code , redisCode ) ){
+        user = await findOneAndUpdate({
+            model : userModel,
+            filter :{_id : user._id},
+            update : { isVerfied : true},
+            options : {new : true}
+        })
+    }else{
+        BadRequestException()
+    }
+
+    return user
+
 }
 
 export const login = async (data, issuer) => {
@@ -95,4 +150,14 @@ export const signupMail = async (token) => {
             throw BadRequestException("something went wrong")
         }
     }
+}
+
+export const logout = async (req)=>{
+    let redisKey = createRevokeKey(req)
+
+    await set({
+        key : redisKey ,
+        value : 1 ,
+        ttl : req.decoded.iat + 30 * 60
+    } )
 }

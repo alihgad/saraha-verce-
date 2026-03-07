@@ -3,8 +3,9 @@ import { env } from '../../../config/index.js'
 import jwt from 'jsonwebtoken'
 import { decodeToken } from '../security/security.js'
 import { UnauthorizedException } from '../utils/reseponce/error.responce.js'
+import { createRevokeKey, get, keys } from '../../database/redis.service.js'
 
-export const auth = (req, res, next) => {
+export const auth = async (req, res, next) => {
     let { authorization } = req.headers
     console.log(authorization);
 
@@ -21,7 +22,21 @@ export const auth = (req, res, next) => {
                 throw UnauthorizedException("un authorized")
             }
             let data = decodeToken(token)
+            console.log(data);
+
+            let revoked = await get(createRevokeKey({
+                userId : data.id,
+                token
+            }))
+            
+
+            if(revoked !== null){
+                throw new Error("alerdy logout")
+            }
+            
             req.userId = data.id
+            req.token = token
+            req.decoded = data
             next()
         default:
             break;

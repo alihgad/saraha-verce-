@@ -46,6 +46,10 @@ const userSchema = new mongoose.Schema({
         type: String,
         enum: Object.values(roleEnums),
         default: roleEnums.User
+    },
+    isVerfied : {
+        type : Boolean,
+        default : false
     }
 })
 

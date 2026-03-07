@@ -8,13 +8,28 @@ import userRoutes from './modules/user/user.controller.js'
 import cors from 'cors'
 import fs from 'fs'
 import path from 'path'
+import { client, connectRedis } from "./database/redis.js"
+import { get, set } from "./database/redis.service.js"
 
 export const bootstrap = async () => {
     const app = express()
     app.use((req, res, next) => {
-        // console.log(`${req.method} ${req.url}`)w
         next()
     })
+
+
+    await connectRedis()
+
+    await set({
+        key : "test",
+        value:"testen",
+        ttl : 60
+    })
+
+
+    console.log(await get("test"));
+    
+    
 
     const uploadsPath = path.join(process.cwd(), 'uploads')
     console.log('Serving static files from:', uploadsPath)
