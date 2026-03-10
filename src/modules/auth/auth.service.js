@@ -162,49 +162,67 @@ export const logout = async (req) => {
     })
 }
 
-
 export const forgetPassword = async (data) => {
     let { email } = data
-    let exsistUser = await findOne({ model: userModel, filter: { email, provider: ProviderEnums.System } })
-    if (exsistUser) {
-        let code = Math.floor(Math.random() * 10000)
+    let exsistedUser = await findOne({ model: userModel, filter: { email } })
+    if (!exsistedUser) {
+        throw BadRequestException("user not found")
+    } else {
+
+        let code = Math.ceil(Math.random() * 10000)
         code = code.toString().padEnd(4, 0)
 
-        set({
-            key: `otp::${exsistUser._id}`,
+        await set({
+            key: `otp::${exsistedUser._id}`,
             value: await generateHash(code),
             ttl: 60 * 5
         })
 
-        sendEmail({
-            to: email,
-            subject: "verfiy your email bsor3a",
-            html: `<h1>Hello</h1> 
+        await sendEmail({
+            to: exsistedUser.email,
+            subject: "rest password",
+            html: `<h1>reset password</h1> 
                 <p>${code} </p>
             `
         })
-        return exsistUser
+        return "otp sent"
     }
-
-    return NotFoundException({
-        message: "User Not Found"
-    })
 }
 
-export const resetPassword = async (data) => {
-    let { email, otp, newPassword } = data
 
-    let exsistUser = await findOne({ model: userModel, filter: { email } })
-    let redisCode = await get(`otp::${exsistUser._id}`)
-    let isMatched = await compareHash(otp, redisCode)
-    if (isMatched) {
-        let hash = await generateHash(newPassword)
-        let updatedUser = await findOneAndUpdate({ model: userModel, filter: { email }, update: { password: hash }, options: { new: true } })
-        redis_delete(`otp::${exsistUser._id}`)
-        return updatedUser
+export const resetPassword = async (data) => {
+    let { email, otp, password } = data
+    let exsistedUser = await findOne({ model: userModel, filter: { email } })
+    if (!exsistedUser) {
+        throw BadRequestException("user not found")
+    }
+    let hashOtp = await get(`otp::${exsistedUser._id}`)
+    console.log(hashOtp, 'from hashed otp');
+    if (await compareHash(otp, hashOtp)) {
+        console.log('hello from the if condtion');
+        console.log(password, "test");
+        console.log(exsistedUser.password);
+        if (await compareHash(password, exsistedUser.password)) {
+            throw BadRequestException("new password can not be same as old password")
+        } else {
+            console.log(password);
+            let hashedPassword = await generateHash(password)
+            console.log(hashedPassword);
+            let updatedUser = await findOneAndUpdate({
+                model: userModel,
+                filter: { _id: exsistedUser._id },
+                update: { password: hashedPassword },
+                options: { new: true }
+            })
+            if (updatedUser) {
+                await redis_delete(`otp::${exsistedUser._id}`)
+                return updatedUser
+            } else {
+                throw BadRequestException("something went wrong")
+            }
+        }
+    } else {
+        return BadRequestException("invalid otp")
     }
 
-    return NotFoundException({
-        message: "User Not Found"
-    })
 }

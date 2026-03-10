@@ -66,18 +66,11 @@ router.post("/logout", auth, async (req, res) => {
 
 router.post('/forget-password', async (req, res) => {
     let data = await forgetPassword(req.body)
-    return SuccessResponse({
-        res,
-        message: "forget password"
-    })
+    return SuccessResponse({ res, message: "OTP sent", status: 200 })
 })
 
-router.post('/reset-password', async (req, res) => {
+router.put('/reset-password', async (req, res) => {
     let data = await resetPassword(req.body)
-    return SuccessResponse({
-        res,
-        message: "reset password"
-    })
+    SuccessResponse({ res, message: "password reset", status: 200, data })
 })
-
 export default router
