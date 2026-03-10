@@ -3,24 +3,23 @@ import { findOne, findOneAndDelete, findOneAndUpdate, userModel } from '../../da
 import { env } from '../../../config/index.js'
 import { get, redis_delete, set } from '../../database/redis.service.js'
 
-let genKey = (userId)=>{
+let genKey = (userId) => {
     return `userProfile::${userId}`
 }
 
 export const getUserProfile = async (userId) => {
     let userData = await get(genKey(userId))
-    if(userData){
+    if (userData) {
         return userData
     }
-
-     userData = await findOne({ model: userModel, filter: { _id: userId }, select: 'firstName lastName email shareProfileName image' })
+    userData = await findOne({ model: userModel, filter: { _id: userId }, select: 'firstName lastName email shareProfileName image' })
     if (!userData) {
         throw BadRequestException({ message: "user not found" })
     } else {
         await set({
-            key : genKey(userId),
-            value : userData,
-            ttl : 60
+            key: genKey(userId),
+            value: userData,
+            ttl: 60
         })
         return userData
     }

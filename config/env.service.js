@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 dotenv.config({ path: "./config/.env" });
 
 const mongoURL = process.env.MONGO_URI;
+const mongoURL_PROD = process.env.MONGO_URI_PROD
 const mood = process.env.MOOD
 const port = process.env.PORT
 const salt = process.env.SALT
@@ -13,8 +14,9 @@ const userRefreshSignature = process.env.JWT_USER_REFRESH_SIGNATURE
 const adminRefreshSignature = process.env.JWT_ADMIN_REFRESH_SIGNATURE
 const BASE_URL = process.env.BASE_URL
 const REDIS_URI = process.env.REDIS_URI
-const APP_PASSWORD = process.env.APP_PASSWORD
-const APP_EMAIL = process.env.APP_EMAIL
+const APP_PASSWORD = process.env.GOOGLE_APP_PASSWORD
+const APP_EMAIL = process.env.EMAIL
+
 export const env = {
     port,
     mongoURL,
@@ -23,8 +25,9 @@ export const env = {
     adminSignature,
     userRefreshSignature,
     adminRefreshSignature,
-    BASE_URL ,
+    BASE_URL,
     REDIS_URI,
     APP_PASSWORD,
-    APP_EMAIL
+    APP_EMAIL,
+    mongoURL_PROD
 };

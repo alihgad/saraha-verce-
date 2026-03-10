@@ -5,7 +5,7 @@ import { generateHash, compareHash } from "../../common/index.js";
 import { env } from "../../../config/index.js"
 import jwt from 'jsonwebtoken'
 import { OAuth2Client } from 'google-auth-library'
-import { createRevokeKey, get, set } from "../../database/redis.service.js";
+import { createRevokeKey, get, redis_delete, set } from "../../database/redis.service.js";
 import { sendEmail } from "../../common/utils/email/sendEmail.js";
 
 
@@ -20,22 +20,22 @@ export const signup = async (data, file) => {
         image = `${env.BASE_URL}/uploads/${file.filename}`
     }
     console.log();
-    
+
     let hashedPassword = await generateHash(password)
     let addedUser = await userModel.insertOne({ userName, email, password: hashedPassword, shareProfileName, image })
     let code = Math.floor(Math.random() * 10000)
-    code = code.toString().padEnd(4,0)
+    code = code.toString().padEnd(4, 0)
 
     set({
-        key:`otp::${addedUser._id}`,
-        value : await generateHash(code),
-        ttl : 60 * 5
+        key: `otp::${addedUser._id}`,
+        value: await generateHash(code),
+        ttl: 60 * 5
     })
- 
-     sendEmail({
-        to : email,
-        subject : "verfiy your email bsor3a",
-        html : `<h1>Hello</h1> 
+
+    sendEmail({
+        to: email,
+        subject: "verfiy your email bsor3a",
+        html: `<h1>Hello</h1> 
             <p>${code} </p>
         `
     })
@@ -44,34 +44,34 @@ export const signup = async (data, file) => {
 }
 
 
-export const verifyEmail =async ({code , email})=>{
+export const verifyEmail = async ({ code, email }) => {
     let user = await findOne({
-        model : userModel,
-        filter : {email},
+        model: userModel,
+        filter: { email },
     })
-    if(user.isVerfied){
+    if (user.isVerfied) {
         return {
-            message : "tany ?"
+            message: "tany ?"
         }
     }
-    
 
-    if(!user){
+
+    if (!user) {
         // return NotFoundException()
         throw new Error("not found")
     }
 
     let redisCode = await get(`otp::${user._id}`)
-    
 
-    if( await compareHash(code , redisCode ) ){
+
+    if (await compareHash(code, redisCode)) {
         user = await findOneAndUpdate({
-            model : userModel,
-            filter :{_id : user._id},
-            update : { isVerfied : true},
-            options : {new : true}
+            model: userModel,
+            filter: { _id: user._id },
+            update: { isVerfied: true },
+            options: { new: true }
         })
-    }else{
+    } else {
         BadRequestException()
     }
 
@@ -152,12 +152,59 @@ export const signupMail = async (token) => {
     }
 }
 
-export const logout = async (req)=>{
+export const logout = async (req) => {
     let redisKey = createRevokeKey(req)
 
     await set({
-        key : redisKey ,
-        value : 1 ,
-        ttl : req.decoded.iat + 30 * 60
-    } )
+        key: redisKey,
+        value: 1,
+        ttl: req.decoded.iat + 30 * 60
+    })
+}
+
+
+export const forgetPassword = async (data) => {
+    let { email } = data
+    let exsistUser = await findOne({ model: userModel, filter: { email, provider: ProviderEnums.System } })
+    if (exsistUser) {
+        let code = Math.floor(Math.random() * 10000)
+        code = code.toString().padEnd(4, 0)
+
+        set({
+            key: `otp::${exsistUser._id}`,
+            value: await generateHash(code),
+            ttl: 60 * 5
+        })
+
+        sendEmail({
+            to: email,
+            subject: "verfiy your email bsor3a",
+            html: `<h1>Hello</h1> 
+                <p>${code} </p>
+            `
+        })
+        return exsistUser
+    }
+
+    return NotFoundException({
+        message: "User Not Found"
+    })
+}
+
+export const resetPassword = async (data) => {
+    let { email, otp, newPassword } = data
+
+    let exsistUser = await findOne({ model: userModel, filter: { email } })
+    let redisCode = await get(`otp::${exsistUser._id}`)
+    let isMatched = await compareHash(otp, redisCode)
+    if (isMatched) {
+        let hash = await generateHash(newPassword)
+        let updatedUser = await findOneAndUpdate({ model: userModel, filter: { email }, update: { password: hash }, options: { new: true } })
+        redis_delete(`otp::${exsistUser._id}`)
+        return updatedUser
+    }
+
+    return NotFoundException({
+        message: "User Not Found"
+    })
 }
