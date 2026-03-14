@@ -50,6 +50,10 @@ const userSchema = new mongoose.Schema({
     isVerfied : {
         type : Boolean,
         default : false
+    },
+    profileImage:{
+        public_id : String,
+        secure_url : String
     }
 })
 

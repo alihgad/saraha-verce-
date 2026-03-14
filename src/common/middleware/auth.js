@@ -22,7 +22,7 @@ export const auth = async (req, res, next) => {
                 throw UnauthorizedException("un authorized")
             }
             let data = decodeToken(token)
-            console.log(data);
+
 
             let revoked = await get(createRevokeKey({
                 userId : data.id,

@@ -2,25 +2,26 @@ import { BadRequestException } from '../../common/index.js'
 import { findOne, findOneAndDelete, findOneAndUpdate, userModel } from '../../database/index.js'
 import { env } from '../../../config/index.js'
 import { get, redis_delete, set } from '../../database/redis.service.js'
+import cloudinary from '../../common/utils/cloudinary.js'
 
-let genKey = (userId)=>{
+let genKey = (userId) => {
     return `userProfile::${userId}`
 }
 
 export const getUserProfile = async (userId) => {
     let userData = await get(genKey(userId))
-    if(userData){
+    if (userData) {
         return userData
     }
 
-     userData = await findOne({ model: userModel, filter: { _id: userId }, select: 'firstName lastName email shareProfileName image' })
+    userData = await findOne({ model: userModel, filter: { _id: userId }, select: 'firstName lastName email shareProfileName image' })
     if (!userData) {
         throw BadRequestException({ message: "user not found" })
     } else {
         await set({
-            key : genKey(userId),
-            value : userData,
-            ttl : 60
+            key: genKey(userId),
+            value: userData,
+            ttl: 60
         })
         return userData
     }
@@ -69,11 +70,46 @@ export const updateProfile = async (userId, data, file) => {
 
 
 export const deleteProfile = async (userId) => {
+    try {
+        await cloudinary.api.delete_resources_by_prefix("users/test")
+    } catch (error) {
+        console.log(error);
+        console.log(error.message);
+    }
 
-    let userData = await findOneAndDelete({ model: userModel, filter: { _id: userId } })
+    let userData = await findOne({ model: userModel, filter: { _id: userId } })
     if (userData) {
+
+
+
         return userData
     } else {
         throw BadRequestException("user not found")
     }
+
 }
+
+
+export const removeProfilImage = async (req) => {
+    let { profileImage } = await findOne({
+        model: userModel,
+        filter: { _id: req.userId },
+        select: "profileImage -_id"
+    })
+
+    let data = await cloudinary.uploader.destroy(profileImage.public_id)
+
+    await findOneAndUpdate({
+        model: userModel,
+        filter: { _id: id },
+        update: { profileImage: {} },
+        options: { new: true }
+    })
+
+    console.log(data);
+    return data
+
+}
+
+
+

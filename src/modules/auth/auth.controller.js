@@ -4,15 +4,17 @@ import { BadRequestException, SuccessResponse } from '../../common/index.js';
 import { auth } from '../../common/middleware/auth.js';
 import { loginShema, signupSchema } from './auth.validation.js'
 import { validation } from '../../common/utils/validation.js'
-import { upload } from '../../common/middleware/multer.js'
+import { extintions, multer_cloud, upload } from '../../common/middleware/multer.js'
 const router = Router();
 
 
 
-router.post('/signup', upload().single('image'), validation(signupSchema), async (req, res) => {
+router.post('/signup', multer_cloud(extintions.image).single('image'), validation(signupSchema), async (req, res) => {
     let addedUser = await signup(req.body, req.file)
     return SuccessResponse({ res, message: "user added ", status: 201, data: addedUser })
 })
+
+
 
 router.post("/verify" , async (req,res)=>{
     let data = await verifyEmail(req.body)
@@ -31,6 +33,8 @@ router.post("/verify" , async (req,res)=>{
 
 router.post('/login', validation(loginShema), async (req, res) => {
     let loginUser = await login(req.body, `${req.protocol}://${req.host}`)
+    console.log(loginUser , "cont");
+    
     console.log(`${req.protocol}://${req.host}`);
     return SuccessResponse({ res, message: "user login succesfully", status: 200, data: loginUser })
 })

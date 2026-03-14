@@ -7,6 +7,7 @@ import jwt from 'jsonwebtoken'
 import { OAuth2Client } from 'google-auth-library'
 import { createRevokeKey, get, set } from "../../database/redis.service.js";
 import { sendEmail } from "../../common/utils/email/sendEmail.js";
+import cloudinary from "../../common/utils/cloudinary.js";
 
 
 export const signup = async (data, file) => {
@@ -15,27 +16,44 @@ export const signup = async (data, file) => {
     if (exsistUser) {
         return ConflictException({ message: "User Already Exists" })
     }
-    let image = ''
-    if (file) {
-        image = `${env.BASE_URL}/uploads/${file.filename}`
-    }
+
+
     console.log();
-    
+
     let hashedPassword = await generateHash(password)
-    let addedUser = await userModel.insertOne({ userName, email, password: hashedPassword, shareProfileName, image })
+    let addedUser = await userModel.insertOne({ userName, email, password: hashedPassword, shareProfileName })
+
+
+    if (file) {
+        let { public_id, secure_url } = await cloudinary.uploader.upload(file.path, {
+            folder: `users/${addedUser._id}/profileImage`,
+            resource_type: "image"
+        })
+
+        addedUser.profileImage = {
+            public_id,
+            secure_url
+        }
+
+        await addedUser.save()
+    }
+
+
+
+
     let code = Math.floor(Math.random() * 10000)
-    code = code.toString().padEnd(4,0)
+    code = code.toString().padEnd(4, 0)
 
     set({
-        key:`otp::${addedUser._id}`,
-        value : await generateHash(code),
-        ttl : 60 * 5
+        key: `otp::${addedUser._id}`,
+        value: await generateHash(code),
+        ttl: 60 * 5
     })
- 
-     sendEmail({
-        to : email,
-        subject : "verfiy your email bsor3a",
-        html : `<h1>Hello</h1> 
+
+    sendEmail({
+        to: email,
+        subject: "verfiy your email bsor3a",
+        html: `<h1>Hello</h1> 
             <p>${code} </p>
         `
     })
@@ -44,34 +62,35 @@ export const signup = async (data, file) => {
 }
 
 
-export const verifyEmail =async ({code , email})=>{
+
+export const verifyEmail = async ({ code, email }) => {
     let user = await findOne({
-        model : userModel,
-        filter : {email},
+        model: userModel,
+        filter: { email },
     })
-    if(user.isVerfied){
+    if (user.isVerfied) {
         return {
-            message : "tany ?"
+            message: "tany ?"
         }
     }
-    
 
-    if(!user){
+
+    if (!user) {
         // return NotFoundException()
         throw new Error("not found")
     }
 
     let redisCode = await get(`otp::${user._id}`)
-    
 
-    if( await compareHash(code , redisCode ) ){
+
+    if (await compareHash(code, redisCode)) {
         user = await findOneAndUpdate({
-            model : userModel,
-            filter :{_id : user._id},
-            update : { isVerfied : true},
-            options : {new : true}
+            model: userModel,
+            filter: { _id: user._id },
+            update: { isVerfied: true },
+            options: { new: true }
         })
-    }else{
+    } else {
         BadRequestException()
     }
 
@@ -81,10 +100,16 @@ export const verifyEmail =async ({code , email})=>{
 
 export const login = async (data, issuer) => {
     let { email, password } = data
-    let exsistUser = await findOne({ model: userModel, filter: { email, provider: ProviderEnums.System } })
+    let exsistUser = await findOne({ model: userModel, filter: { email} })
+    console.log(exsistUser , "serv");
+    
     if (exsistUser) {
+        
         const isMatched = await compareHash(password, exsistUser.password)
+        console.log(isMatched);
+        
         if (isMatched) {
+            console.log("in if");
             let { accessToken, refreshToken } = genetareToken(exsistUser)
             return { exsistUser, accessToken, refreshToken }
         }
@@ -152,12 +177,12 @@ export const signupMail = async (token) => {
     }
 }
 
-export const logout = async (req)=>{
+export const logout = async (req) => {
     let redisKey = createRevokeKey(req)
 
     await set({
-        key : redisKey ,
-        value : 1 ,
-        ttl : req.decoded.iat + 30 * 60
-    } )
+        key: redisKey,
+        value: 1,
+        ttl: req.decoded.iat + 30 * 60
+    })
 }
