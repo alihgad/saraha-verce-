@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { generateAccessToken, getUserById, login, signup, signupMail , logout , verifyEmail } from './auth.service.js';
+import { generateAccessToken, getUserById, login, signup, signupMail, logout, verifyEmail, forgetPassword, resetPassword } from './auth.service.js';
 import { BadRequestException, SuccessResponse } from '../../common/index.js';
 import { auth } from '../../common/middleware/auth.js';
 import { loginShema, signupSchema } from './auth.validation.js'
@@ -15,18 +15,17 @@ router.post('/signup', multer_cloud(extintions.image).single('image'), validatio
 })
 
 
-
-router.post("/verify" , async (req,res)=>{
+router.post("/verify", async (req, res) => {
     let data = await verifyEmail(req.body)
-    if(data){
+    if (data) {
         return SuccessResponse({
             res,
-            message:"3ash",
-            data 
+            message: "3ash",
+            data
         })
-    }else{
+    } else {
         return BadRequestException({
-            message : "wrong"
+            message: "wrong"
         })
     }
 })
@@ -60,11 +59,21 @@ router.post('/signup/gmail', async (req, res) => {
 })
 
 
-router.post("/logout",auth , async (req,res) =>{
+router.post("/logout", auth, async (req, res) => {
     await logout(req)
     return SuccessResponse({
         res,
         message: "logout done"
     })
+})
+
+router.post('/forget-password', async (req, res) => {
+    let data = await forgetPassword(req.body)
+    return SuccessResponse({ res, message: "OTP sent", status: 200 })
+})
+
+router.put('/reset-password', async (req, res) => {
+    let data = await resetPassword(req.body)
+    SuccessResponse({ res, message: "password reset", status: 200, data })
 })
 export default router

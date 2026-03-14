@@ -1,5 +1,6 @@
 import { createClient } from "redis"
 import { env } from "../../config/index.js"
+console.log(env.REDIS_URI);
 
 export const client = createClient({
     url: env.REDIS_URI

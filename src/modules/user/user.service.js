@@ -14,7 +14,7 @@ export const getUserProfile = async (userId) => {
         return userData
     }
 
-    userData = await findOne({ model: userModel, filter: { _id: userId }, select: 'firstName lastName email shareProfileName image' })
+     userData = await findOne({ model: userModel, filter: { _id: userId }, select: 'firstName lastName email shareProfileName image' })
     if (!userData) {
         throw BadRequestException({ message: "user not found" })
     } else {

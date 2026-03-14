@@ -5,7 +5,7 @@ import { generateHash, compareHash } from "../../common/index.js";
 import { env } from "../../../config/index.js"
 import jwt from 'jsonwebtoken'
 import { OAuth2Client } from 'google-auth-library'
-import { createRevokeKey, get, set } from "../../database/redis.service.js";
+import { createRevokeKey, get, redis_delete, set } from "../../database/redis.service.js";
 import { sendEmail } from "../../common/utils/email/sendEmail.js";
 import cloudinary from "../../common/utils/cloudinary.js";
 
@@ -19,6 +19,7 @@ export const signup = async (data, file) => {
 
 
     console.log();
+
 
     let hashedPassword = await generateHash(password)
     let addedUser = await userModel.insertOne({ userName, email, password: hashedPassword, shareProfileName })
@@ -53,9 +54,7 @@ export const signup = async (data, file) => {
     sendEmail({
         to: email,
         subject: "verfiy your email bsor3a",
-        html: `<h1>Hello</h1> 
-            <p>${code} </p>
-        `
+        html: `<h1>Hello</h1> `
     })
 
     return addedUser
@@ -71,8 +70,10 @@ export const verifyEmail = async ({ code, email }) => {
     if (user.isVerfied) {
         return {
             message: "tany ?"
+       
         }
     }
+
 
 
     if (!user) {
@@ -83,6 +84,7 @@ export const verifyEmail = async ({ code, email }) => {
     let redisCode = await get(`otp::${user._id}`)
 
 
+
     if (await compareHash(code, redisCode)) {
         user = await findOneAndUpdate({
             model: userModel,
@@ -90,7 +92,7 @@ export const verifyEmail = async ({ code, email }) => {
             update: { isVerfied: true },
             options: { new: true }
         })
-    } else {
+    }  else  {
         BadRequestException()
     }
 
@@ -185,4 +187,69 @@ export const logout = async (req) => {
         value: 1,
         ttl: req.decoded.iat + 30 * 60
     })
+}
+
+export const forgetPassword = async (data) => {
+    let { email } = data
+    let exsistedUser = await findOne({ model: userModel, filter: { email } })
+    if (!exsistedUser) {
+        throw BadRequestException("user not found")
+    } else {
+
+        let code = Math.ceil(Math.random() * 10000)
+        code = code.toString().padEnd(4, 0)
+
+        await set({
+            key: `otp::${exsistedUser._id}`,
+            value: await generateHash(code),
+            ttl: 60 * 5
+        })
+
+        await sendEmail({
+            to: exsistedUser.email,
+            subject: "rest password",
+            html: `<h1>reset password</h1> 
+                <p>${code} </p>
+            `
+        })
+        return "otp sent"
+    }
+}
+
+
+export const resetPassword = async (data) => {
+    let { email, otp, password } = data
+    let exsistedUser = await findOne({ model: userModel, filter: { email } })
+    if (!exsistedUser) {
+        throw BadRequestException("user not found")
+    }
+    let hashOtp = await get(`otp::${exsistedUser._id}`)
+    console.log(hashOtp, 'from hashed otp');
+    if (await compareHash(otp, hashOtp)) {
+        console.log('hello from the if condtion');
+        console.log(password, "test");
+        console.log(exsistedUser.password);
+        if (await compareHash(password, exsistedUser.password)) {
+            throw BadRequestException("new password can not be same as old password")
+        } else {
+            console.log(password);
+            let hashedPassword = await generateHash(password)
+            console.log(hashedPassword);
+            let updatedUser = await findOneAndUpdate({
+                model: userModel,
+                filter: { _id: exsistedUser._id },
+                update: { password: hashedPassword },
+                options: { new: true }
+            })
+            if (updatedUser) {
+                await redis_delete(`otp::${exsistedUser._id}`)
+                return updatedUser
+            } else {
+                throw BadRequestException("something went wrong")
+            }
+        }
+    } else {
+        return BadRequestException("invalid otp")
+    }
+
 }
