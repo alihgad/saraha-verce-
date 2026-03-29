@@ -3,6 +3,8 @@ import dotenv from "dotenv";
 dotenv.config({ path: "./config/.env" });
 
 const mongoURL = process.env.MONGO_URI;
+console.log(mongoURL);
+
 const mongoURL_PROD = process.env.MONGO_URI_PROD
 const mood = process.env.MOOD
 const port = process.env.PORT
