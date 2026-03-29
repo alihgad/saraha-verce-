@@ -18,8 +18,7 @@ import "./cron.js"
 
 
 
-export const bootstrap = async () => {
-    const app = express()
+export const bootstrap = async (app) => {
     app.use((req, res, next) => {
         next()
     })
