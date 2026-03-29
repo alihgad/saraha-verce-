@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { generateAccessToken, getUserById, login, signup, signupMail, logout, verifyEmail, forgetPassword, resetPassword } from './auth.service.js';
+import { generateAccessToken, getUserById, login, signup, signupMail, logout, verifyEmail, forgetPassword, resetPassword, toggle2sv, verify2sv, verifyLogin } from './auth.service.js';
 import { BadRequestException, SuccessResponse } from '../../common/index.js';
 import { auth } from '../../common/middleware/auth.js';
 import { loginShema, signupSchema } from './auth.validation.js'
@@ -12,6 +12,33 @@ const router = Router();
 router.post('/signup', multer_cloud(extintions.image).single('image'), validation(signupSchema), async (req, res) => {
     let addedUser = await signup(req.body, req.file)
     return SuccessResponse({ res, message: "user added ", status: 201, data: addedUser })
+})
+
+
+router.post("/toggle-2sv" ,auth , async (req,res)=>{
+        let data = await toggle2sv(req.userId)
+
+        return SuccessResponse({
+            res , message : data.msg , status :200
+        })
+
+} )
+
+router.post("/verify-2sv" ,auth , async (req,res)=>{
+        let data = await verify2sv(req.userId , req.body.otp)
+
+        return SuccessResponse({
+            res , message : data.msg , status :200 , data : data.user
+        })
+        
+} )
+
+router.post("/verify-login" , async (req,res)=>{
+    let data = await verifyLogin(req.body.email , req.body.otp)
+
+    SuccessResponse({
+        res , message :"login" , status :200 , data 
+    })
 })
 
 

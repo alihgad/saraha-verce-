@@ -54,6 +54,10 @@ const userSchema = new mongoose.Schema({
     profileImage:{
         public_id : String,
         secure_url : String
+    },
+    tsv :{
+        type : Boolean ,
+        default : false
     }
 })
 

@@ -11,7 +11,17 @@ export const set = async ({key , value , ttl} = {})=> {
     if( typeof value == "object"){
         value = JSON.stringify(value)
     }
-    return await client.set(key ,  value , {EX : ttl})
+
+    if(ttl){
+        return await client.set(key ,  value , {EX : ttl})
+    }else{
+        return await client.set(key , value)
+    }
+}
+
+
+export const increment = async (key)=>{
+    return await client.incr(key)
 }
 
 export const get = async (key)=>{

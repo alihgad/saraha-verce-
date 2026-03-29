@@ -1,4 +1,4 @@
-import express from "express"
+import express  from "express"
 import { env } from '../config/env.service.js'
 import { globalErrorHandler } from "./common/index.js"
 import { databaseCOnnection } from "./database/index.js"
@@ -6,10 +6,17 @@ import authRouter from './modules/auth/auth.controller.js'
 import messageRouter from './modules/messages/messages.controller.js'
 import userRoutes from './modules/user/user.controller.js'
 import cors from 'cors'
-import fs from 'fs'
 import path from 'path'
-import { client, connectRedis } from "./database/redis.js"
+import {connectRedis } from "./database/redis.js"
 import { get, set } from "./database/redis.service.js"
+import helmet from 'helmet'
+import { ipKeyGenerator, rateLimit } from 'express-rate-limit'
+import axios from "axios"
+import geoip from 'geoip-lite'
+import "./cron.js"
+
+
+
 
 export const bootstrap = async () => {
     const app = express()
@@ -26,8 +33,39 @@ export const bootstrap = async () => {
         ttl : 60
     })
 
-
+    app.set('trust proxy', true)
     console.log(await get("test"));
+
+    let getCounteryCode = async(ip)=>{
+       let data = await axios.get(`https://ipapi.co/${ip}/json/`)
+       return data.data.country_code
+    }
+
+    // app.use(rateLimit({
+    //     windowMs : 1 * 1000 * 60 ,
+    //     limit : async (req,res)=>{
+    //         console.log(req.ip);
+    //         // let countryCode =await getCounteryCode(req.ip)
+    //         let data = geoip.lookup(req.ip)
+    //         console.log(data);            
+    //         return data.country == "EG" ? 3 : 0
+    //     },
+    //     message: {status : 500 , message : "Internal server error msg"} ,
+    //     statusCode : 200,
+    //     handler : (req , res , next) => {
+    //         next({status : 500 , message : "Internal server error"})
+    //     },
+    //     // legacyHeaders : false,
+    //     // standardHeaders : "draft-8",
+    //     // skipSuccessfulRequests:true,
+    //     // skipFailedRequests : true
+    // }))
+
+    app.get("/" , (req , res) => {
+        res.json({
+            msg : "hello"
+        })
+    })
     
     
 
@@ -36,9 +74,17 @@ export const bootstrap = async () => {
     app.use(express.static(uploadsPath))
     app.use(express.static('public'))
     app.use(express.json())
+
     app.use(express.urlencoded({ extended: false }))
 
-    app.use(cors())
+    app.use(helmet())
+
+    app.use(cors({
+        origin : "http://localhost:3000",
+        methods : ["GET"],
+        credentials : true
+    }))
+
 
     app.use("/upload" , express.static("upload"))
     

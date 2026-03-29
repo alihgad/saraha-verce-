@@ -5,7 +5,7 @@ import { generateHash, compareHash } from "../../common/index.js";
 import { env } from "../../../config/index.js"
 import jwt from 'jsonwebtoken'
 import { OAuth2Client } from 'google-auth-library'
-import { createRevokeKey, get, redis_delete, set } from "../../database/redis.service.js";
+import { createRevokeKey, get, increment, redis_delete, set, ttl } from "../../database/redis.service.js";
 import { sendEmail } from "../../common/utils/email/sendEmail.js";
 import cloudinary from "../../common/utils/cloudinary.js";
 
@@ -18,7 +18,7 @@ export const signup = async (data, file) => {
     }
 
 
-    console.log();
+
 
 
     let hashedPassword = await generateHash(password)
@@ -70,7 +70,7 @@ export const verifyEmail = async ({ code, email }) => {
     if (user.isVerfied) {
         return {
             message: "tany ?"
-       
+
         }
     }
 
@@ -92,7 +92,7 @@ export const verifyEmail = async ({ code, email }) => {
             update: { isVerfied: true },
             options: { new: true }
         })
-    }  else  {
+    } else {
         BadRequestException()
     }
 
@@ -102,22 +102,179 @@ export const verifyEmail = async ({ code, email }) => {
 
 export const login = async (data, issuer) => {
     let { email, password } = data
-    let exsistUser = await findOne({ model: userModel, filter: { email} })
-    console.log(exsistUser , "serv");
-    
+    let counterKey = `user::${email}`
+    let bannKey = `user::banned::${email}`
+
+    if (await get(bannKey)) {
+        throw new Error(`you are banned try again after ${Math.ceil(await ttl(bannKey) / 60)} minutes`)
+    }
+
+
+    let exsistUser = await findOne({ model: userModel, filter: { email } })
+
+    if(!exsistUser.isVerfied){
+        return BadRequestException({
+            message : " verfiy your email first w t3ala tany "
+        })
+    }
+
     if (exsistUser) {
-        
+
         const isMatched = await compareHash(password, exsistUser.password)
-        console.log(isMatched);
-        
+
         if (isMatched) {
-            console.log("in if");
-            let { accessToken, refreshToken } = genetareToken(exsistUser)
-            return { exsistUser, accessToken, refreshToken }
+            if(await get(counterKey)){
+                await redis_delete(counterKey)
+            }
+
+            if (exsistUser.tsv) {
+                let otp = Math.ceil(Math.random() * 1000).toString().padEnd(4, "1")
+
+                set({
+                    key: `login::otp::${exsistUser.email}`,
+                    value: otp,
+                    ttl: 5 * 60
+                })
+
+                await sendEmail({
+                    to: exsistUser.email,
+                    subject: "tsv to login",
+                    html: `<p> Your OTP : ${otp} </p> <br/> <p>OTP is valid for 5 minutes</p>`
+                })
+
+
+                return { msg: "done" }
+            } else {
+                let { accessToken, refreshToken } = genetareToken(exsistUser)
+                return { exsistUser, accessToken, refreshToken }
+            }
+        } else {
+            console.log("wrong password");
+
+            if (await get(counterKey)) {
+                await increment(counterKey)
+                if (await get(counterKey) == 5) {
+                    await set({
+                        key: bannKey,
+                        value: "true",
+                        ttl: 5 * 60
+                    })
+
+                    await redis_delete(counterKey)
+                }
+            } else {
+                await set({
+                    key: counterKey,
+                    value: 1
+                })
+            }
+
+            throw new Error("wrong password")
         }
+
     }
     return NotFoundException({ message: "User Not Found" })
 }
+
+
+export const toggle2sv = async (userId) => {
+    let user = await findById({
+        model: userModel,
+        id: userId
+    })
+
+    if (!user) {
+        NotFoundException({
+            message: "user not found"
+        })
+    }
+
+    let otp = Math.ceil(Math.random() * 1000).toString().padEnd(4, "1")
+
+    set({
+        key: `2sv::otp::${userId}`,
+        value: otp,
+        ttl: 5 * 60
+    })
+
+    await sendEmail({
+        to: user.email,
+        subject: user.tsv ? "Disable 2sv" : "Enable 2sv",
+        html: `<p> Your OTP : ${otp} </p> <br/> <p>OTP is valid for 5 minutes</p>`
+    })
+
+
+    return { msg: "done" }
+
+}
+
+export const verify2sv = async (userId, otp) => {
+
+    let user = await findById({
+        model: userModel,
+        id: userId
+    })
+
+    if (!user) {
+        NotFoundException({
+            message: "user not found"
+        })
+    }
+
+
+
+
+    if (otp != await get(`2sv::otp::${userId}`)) {
+        BadRequestException({
+            message: "wrong otp"
+        })
+    } else {
+        user = await findOneAndUpdate({
+            model: userModel,
+            filter: { _id: userId },
+            update: { tsv: !user.tsv },
+            options: { new: true }
+        })
+        redis_delete(`2sv::otp::${userId}`)
+
+
+    }
+
+
+
+    return { msg: "done", user }
+}
+
+export const verifyLogin = async (email, otp) => {
+    let storedOTP = await get(`login::otp::${email}`)
+
+    
+
+    let exsistUser = await findOne({
+        model : userModel,
+        filter : {email}
+    })
+
+    console.log(exsistUser );
+    
+
+    if(!exsistUser){
+        return NotFoundException({
+            message : "not found user"
+        })
+    }
+
+    if (otp != storedOTP) {
+        return BadRequestException({
+            message: "wrong otp"
+        })
+    } else {
+        redis_delete(`login::otp::${email}`)
+        let { accessToken, refreshToken } = genetareToken(exsistUser)
+        return { exsistUser, accessToken, refreshToken }
+    }
+}
+
 
 
 export const getUserById = async (userId) => {
